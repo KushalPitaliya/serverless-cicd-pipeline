@@ -1,0 +1,44 @@
+# SAM CLI Configuration
+# This file is used by SAM CLI for deployment settings
+
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "task-manager-dev"
+resolve_s3 = true
+s3_prefix = "task-manager"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+disable_rollback = false
+parameter_overrides = "Environment=dev"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.validate.parameters]
+lint = true
+
+[default.local_invoke.parameters]
+env_vars = "env.json"
+
+# Staging environment
+[staging.deploy.parameters]
+stack_name = "task-manager-staging"
+resolve_s3 = true
+s3_prefix = "task-manager"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = true
+parameter_overrides = "Environment=staging"
+
+# Production environment
+[prod.deploy.parameters]
+stack_name = "task-manager-prod"
+resolve_s3 = true
+s3_prefix = "task-manager"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = true
+parameter_overrides = "Environment=prod"

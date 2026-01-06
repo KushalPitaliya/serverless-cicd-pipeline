@@ -1,0 +1,242 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Serverless Task Manager API with CI/CD Pipeline
+  Demonstrates DevOps best practices with AWS SAM
+
+# ============================================
+# GLOBAL SETTINGS
+# ============================================
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.9
+    MemorySize: 256
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref TasksTable
+        LOG_LEVEL: INFO
+    Tracing: Active  # Enable X-Ray tracing
+
+# ============================================
+# PARAMETERS
+# ============================================
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Deployment environment
+
+  LogRetentionDays:
+    Type: Number
+    Default: 14
+    Description: CloudWatch log retention in days
+
+# ============================================
+# RESOURCES
+# ============================================
+Resources:
+
+  # ----------------------------------------
+  # API Gateway
+  # ----------------------------------------
+  TaskManagerApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub 'task-manager-api-${Environment}'
+      StageName: !Ref Environment
+      Description: Task Manager REST API
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+        AllowOrigin: "'*'"
+      TracingEnabled: true
+
+  # ----------------------------------------
+  # Lambda Functions
+  # ----------------------------------------
+  TaskManagerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'task-manager-${Environment}'
+      CodeUri: src/handlers/
+      Handler: app.lambda_handler
+      Description: Main Task Manager API Handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TasksTable
+        - CloudWatchLogsFullAccess
+      Events:
+        GetTasks:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TaskManagerApi
+            Path: /tasks
+            Method: GET
+        CreateTask:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TaskManagerApi
+            Path: /tasks
+            Method: POST
+        GetTask:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TaskManagerApi
+            Path: /tasks/{id}
+            Method: GET
+        UpdateTask:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TaskManagerApi
+            Path: /tasks/{id}
+            Method: PUT
+        DeleteTask:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TaskManagerApi
+            Path: /tasks/{id}
+            Method: DELETE
+        Options:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TaskManagerApi
+            Path: /tasks
+            Method: OPTIONS
+        OptionsWithId:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TaskManagerApi
+            Path: /tasks/{id}
+            Method: OPTIONS
+
+  HealthCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'task-manager-health-${Environment}'
+      CodeUri: src/handlers/
+      Handler: app.health_check
+      Description: Health Check Endpoint
+      Events:
+        HealthCheck:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TaskManagerApi
+            Path: /health
+            Method: GET
+
+  # ----------------------------------------
+  # DynamoDB Table
+  # ----------------------------------------
+  TasksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'tasks-${Environment}'
+      BillingMode: PAY_PER_REQUEST  # Free tier friendly
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ----------------------------------------
+  # CloudWatch Log Groups
+  # ----------------------------------------
+  TaskManagerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/task-manager-${Environment}'
+      RetentionInDays: !Ref LogRetentionDays
+
+  HealthCheckLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/task-manager-health-${Environment}'
+      RetentionInDays: !Ref LogRetentionDays
+
+  # API Access Logging disabled (requires CloudWatch Logs role)
+  # Can be enabled later by configuring API Gateway account settings
+
+  # ----------------------------------------
+  # CloudWatch Alarms
+  # ----------------------------------------
+  LambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'task-manager-errors-${Environment}'
+      AlarmDescription: Alarm when Lambda function has errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref TaskManagerFunction
+      AlarmActions:
+        - !Ref AlertsTopic
+
+  ApiLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'task-manager-api-latency-${Environment}'
+      AlarmDescription: Alarm when API latency is high
+      MetricName: Latency
+      Namespace: AWS/ApiGateway
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 3000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub 'task-manager-api-${Environment}'
+      AlarmActions:
+        - !Ref AlertsTopic
+
+  # ----------------------------------------
+  # SNS Topic for Alerts
+  # ----------------------------------------
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'task-manager-alerts-${Environment}'
+      DisplayName: Task Manager Alerts
+
+# ============================================
+# OUTPUTS
+# ============================================
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${TaskManagerApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+
+  TaskManagerFunctionArn:
+    Description: Task Manager Lambda Function ARN
+    Value: !GetAtt TaskManagerFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionArn'
+
+  TasksTableName:
+    Description: DynamoDB Table Name
+    Value: !Ref TasksTable
+    Export:
+      Name: !Sub '${AWS::StackName}-TableName'
+
+  AlertsTopicArn:
+    Description: SNS Topic for Alerts
+    Value: !Ref AlertsTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-AlertsTopicArn'

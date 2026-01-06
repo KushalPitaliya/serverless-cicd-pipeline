@@ -1,0 +1,363 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  CI/CD Pipeline for Serverless Task Manager
+  Creates CodePipeline, CodeBuild, and supporting resources
+
+# ============================================
+# PARAMETERS
+# ============================================
+Parameters:
+  GitHubOwner:
+    Type: String
+    Description: GitHub repository owner (username or organization)
+    Default: kushalpitaliya
+
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+    Default: serverless-cicd-pipeline
+
+  GitHubBranch:
+    Type: String
+    Description: GitHub branch to track
+    Default: main
+
+  GitHubTokenSecretName:
+    Type: String
+    Description: Name of Secrets Manager secret containing GitHub token
+    Default: github-token
+
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+
+# ============================================
+# RESOURCES
+# ============================================
+Resources:
+
+  # ----------------------------------------
+  # S3 Bucket for Pipeline Artifacts
+  # ----------------------------------------
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'task-manager-artifacts-${AWS::AccountId}-${Environment}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldArtifacts
+            Status: Enabled
+            ExpirationInDays: 30
+
+  # ----------------------------------------
+  # IAM Role for CodePipeline
+  # ----------------------------------------
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'task-manager-pipeline-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodePipelinePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                  - s3:GetBucketVersioning
+                Resource:
+                  - !GetAtt ArtifactBucket.Arn
+                  - !Sub '${ArtifactBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                Resource: !GetAtt CodeBuildProject.Arn
+              - Effect: Allow
+                Action:
+                  - codestar-connections:UseConnection
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref PipelineNotificationTopic
+
+  # ----------------------------------------
+  # IAM Role for CodeBuild
+  # ----------------------------------------
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'task-manager-codebuild-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodeBuildPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # CloudWatch Logs
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+              # S3 Artifacts
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                Resource:
+                  - !GetAtt ArtifactBucket.Arn
+                  - !Sub '${ArtifactBucket.Arn}/*'
+              # CloudFormation for SAM deploy
+              - Effect: Allow
+                Action:
+                  - cloudformation:*
+                Resource: '*'
+              # Lambda for SAM deploy
+              - Effect: Allow
+                Action:
+                  - lambda:*
+                Resource: '*'
+              # API Gateway for SAM deploy
+              - Effect: Allow
+                Action:
+                  - apigateway:*
+                Resource: '*'
+              # DynamoDB for SAM deploy
+              - Effect: Allow
+                Action:
+                  - dynamodb:*
+                Resource: '*'
+              # IAM for SAM deploy
+              - Effect: Allow
+                Action:
+                  - iam:*
+                Resource: '*'
+              # SNS for alerts
+              - Effect: Allow
+                Action:
+                  - sns:*
+                Resource: '*'
+              # CloudWatch for alarms
+              - Effect: Allow
+                Action:
+                  - cloudwatch:*
+                Resource: '*'
+
+  # ----------------------------------------
+  # CodeBuild Project
+  # ----------------------------------------
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub 'task-manager-build-${Environment}'
+      Description: Build and deploy Task Manager API
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      TimeoutInMinutes: 30
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec.yml
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        PrivilegedMode: true  # Required for SAM build with containers
+        EnvironmentVariables:
+          - Name: ARTIFACT_BUCKET
+            Value: !Ref ArtifactBucket
+          - Name: DEPLOY_ENVIRONMENT
+            Value: !Ref Environment
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Sub '/aws/codebuild/task-manager-${Environment}'
+      Cache:
+        Type: S3
+        Location: !Sub '${ArtifactBucket}/cache'
+
+  # ----------------------------------------
+  # GitHub Connection (CodeStar)
+  # ----------------------------------------
+  GitHubConnection:
+    Type: AWS::CodeStarConnections::Connection
+    Properties:
+      ConnectionName: !Sub 'github-connection-${Environment}'
+      ProviderType: GitHub
+
+  # ----------------------------------------
+  # CodePipeline
+  # ----------------------------------------
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub 'task-manager-pipeline-${Environment}'
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      Stages:
+        # Source Stage
+        - Name: Source
+          Actions:
+            - Name: GitHubSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              Configuration:
+                ConnectionArn: !Ref GitHubConnection
+                FullRepositoryId: !Sub '${GitHubOwner}/${GitHubRepo}'
+                BranchName: !Ref GitHubBranch
+                OutputArtifactFormat: CODE_ZIP
+              OutputArtifacts:
+                - Name: SourceOutput
+              RunOrder: 1
+
+        # Build Stage
+        - Name: Build
+          Actions:
+            - Name: BuildAndTest
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+
+  # ----------------------------------------
+  # SNS Topic for Pipeline Notifications
+  # ----------------------------------------
+  PipelineNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'task-manager-pipeline-notifications-${Environment}'
+      DisplayName: Pipeline Notifications
+
+  # ----------------------------------------
+  # Pipeline Notification Rule
+  # ----------------------------------------
+  PipelineNotificationRule:
+    Type: AWS::CodeStarNotifications::NotificationRule
+    Properties:
+      Name: !Sub 'task-manager-pipeline-notifications-${Environment}'
+      DetailType: FULL
+      Resource: !Sub 'arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}'
+      EventTypeIds:
+        - codepipeline-pipeline-pipeline-execution-succeeded
+        - codepipeline-pipeline-pipeline-execution-failed
+        - codepipeline-pipeline-pipeline-execution-started
+      Targets:
+        - TargetType: SNS
+          TargetAddress: !Ref PipelineNotificationTopic
+
+  # ----------------------------------------
+  # CloudWatch Dashboard
+  # ----------------------------------------
+  PipelineDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub 'task-manager-pipeline-${Environment}'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "CodeBuild Duration",
+                "metrics": [
+                  ["AWS/CodeBuild", "Duration", "ProjectName", "${CodeBuildProject}"]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "${AWS::Region}"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Build Success/Failure",
+                "metrics": [
+                  ["AWS/CodeBuild", "SucceededBuilds", "ProjectName", "${CodeBuildProject}"],
+                  ["AWS/CodeBuild", "FailedBuilds", "ProjectName", "${CodeBuildProject}"]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "${AWS::Region}"
+              }
+            }
+          ]
+        }
+
+# ============================================
+# OUTPUTS
+# ============================================
+Outputs:
+  PipelineName:
+    Description: CodePipeline Name
+    Value: !Ref Pipeline
+
+  PipelineUrl:
+    Description: CodePipeline Console URL
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/codesuite/codepipeline/pipelines/${Pipeline}/view'
+
+  ArtifactBucketName:
+    Description: S3 Bucket for Artifacts
+    Value: !Ref ArtifactBucket
+
+  GitHubConnectionArn:
+    Description: GitHub Connection ARN (needs to be authorized in console)
+    Value: !Ref GitHubConnection
+
+  NotificationTopicArn:
+    Description: SNS Topic for Pipeline Notifications
+    Value: !Ref PipelineNotificationTopic

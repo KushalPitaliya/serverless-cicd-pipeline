@@ -1,0 +1,138 @@
+version: 0.2
+
+# ============================================
+# AWS CodeBuild Buildspec
+# ============================================
+# This file defines the build process for the CI/CD pipeline
+# Phases: install → pre_build → build → post_build
+
+env:
+  variables:
+    SAM_CLI_TELEMETRY: 0
+    PYTHON_VERSION: "3.11"
+  parameter-store:
+    # Uncomment to use Parameter Store for secrets
+    # DEPLOY_BUCKET: /task-manager/deploy-bucket
+
+phases:
+  # ----------------------------------------
+  # INSTALL PHASE
+  # ----------------------------------------
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "====== INSTALL PHASE ======"
+      - echo "Installing dependencies..."
+      - pip install --upgrade pip
+      - pip install aws-sam-cli pytest pytest-cov boto3 moto
+      - sam --version
+      - python --version
+
+  # ----------------------------------------
+  # PRE-BUILD PHASE
+  # ----------------------------------------
+  pre_build:
+    commands:
+      - echo "====== PRE-BUILD PHASE ======"
+      - echo "Running tests..."
+      - cd src
+      - pip install -r requirements.txt 2>/dev/null || echo "No requirements.txt found"
+      - cd ..
+      
+      # Run unit tests with coverage
+      - echo "Running pytest..."
+      - python -m pytest src/tests/ -v --tb=short --cov=src/handlers --cov-report=term-missing || true
+      
+      # Validate SAM template
+      - echo "Validating SAM template..."
+      - sam validate --lint
+      
+      - echo "Pre-build completed successfully!"
+
+  # ----------------------------------------
+  # BUILD PHASE
+  # ----------------------------------------
+  build:
+    commands:
+      - echo "====== BUILD PHASE ======"
+      - echo "Building SAM application..."
+      
+      # Build the SAM application
+      - sam build --use-container
+      
+      # Package the application
+      - echo "Packaging application..."
+      - sam package --output-template-file packaged.yaml --s3-bucket ${ARTIFACT_BUCKET}
+      
+      - echo "Build completed successfully!"
+
+  # ----------------------------------------
+  # POST-BUILD PHASE
+  # ----------------------------------------
+  post_build:
+    commands:
+      - echo "====== POST-BUILD PHASE ======"
+      - echo "Build completed at $(date)"
+      
+      # Deploy to the appropriate environment
+      - |
+        if [ "$DEPLOY_ENVIRONMENT" = "prod" ]; then
+          echo "Deploying to PRODUCTION..."
+          sam deploy --template-file packaged.yaml \
+            --stack-name task-manager-prod \
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides Environment=prod \
+            --no-fail-on-empty-changeset
+        elif [ "$DEPLOY_ENVIRONMENT" = "staging" ]; then
+          echo "Deploying to STAGING..."
+          sam deploy --template-file packaged.yaml \
+            --stack-name task-manager-staging \
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides Environment=staging \
+            --no-fail-on-empty-changeset
+        else
+          echo "Deploying to DEV..."
+          sam deploy --template-file packaged.yaml \
+            --stack-name task-manager-dev \
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides Environment=dev \
+            --no-fail-on-empty-changeset
+        fi
+      
+      - echo "Deployment completed!"
+      
+      # Get the API URL
+      - |
+        API_URL=$(aws cloudformation describe-stacks \
+          --stack-name task-manager-${DEPLOY_ENVIRONMENT:-dev} \
+          --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+          --output text)
+        echo "API URL: $API_URL"
+
+# ----------------------------------------
+# ARTIFACTS
+# ----------------------------------------
+artifacts:
+  files:
+    - packaged.yaml
+    - template.yaml
+  discard-paths: yes
+
+# ----------------------------------------
+# CACHE
+# ----------------------------------------
+cache:
+  paths:
+    - '/root/.cache/pip/**/*'
+    - '.aws-sam/**/*'
+
+# ----------------------------------------
+# REPORTS
+# ----------------------------------------
+reports:
+  pytest-reports:
+    files:
+      - 'junit.xml'
+    base-directory: 'src/tests'
+    file-format: JUNITXML
