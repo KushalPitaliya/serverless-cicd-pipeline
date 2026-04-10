@@ -2,9 +2,10 @@
 
 A complete CI/CD pipeline demonstrating DevOps best practices with AWS serverless technologies.
 
-![Architecture](https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip)
-![AWS](https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip%20Tier-green)
-![Python](https://github.com/KushalPitaliya/serverless-cicd-pipeline/raw/refs/heads/main/infrastructure/pipeline-serverless-cicd-expellable.zip)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)](https://www.python.org/)
+[![AWS SAM](https://img.shields.io/badge/AWS_SAM-Serverless-FF9900?logo=amazonaws)](https://aws.amazon.com/serverless/sam/)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-CodePipeline-232F3E?logo=amazonaws)](https://aws.amazon.com/codepipeline/)
 
 ## 📋 Overview
 
