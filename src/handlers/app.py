@@ -2,7 +2,7 @@ import json
 import boto3
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 # Initialize DynamoDB
@@ -43,7 +43,7 @@ def lambda_handler(event, context):
     - PUT /tasks/{id} - Update a task
     - DELETE /tasks/{id} - Delete a task
     """
-    print(f"Event: {json.dumps(event)}")
+    print(f"Event: method={event.get('httpMethod')} path={event.get('path')}")
     
     http_method = event.get('httpMethod', '')
     path = event.get('path', '')
@@ -74,7 +74,7 @@ def lambda_handler(event, context):
             return create_response(404, {'error': 'Not Found'})
             
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error: {type(e).__name__}: {str(e)}")
         return create_response(500, {'error': str(e)})
 
 
@@ -110,8 +110,8 @@ def create_task(body):
         'description': body.get('description', ''),
         'status': body.get('status', 'pending'),
         'priority': body.get('priority', 'medium'),
-        'created_at': datetime.utcnow().isoformat(),
-        'updated_at': datetime.utcnow().isoformat()
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'updated_at': datetime.now(timezone.utc).isoformat()
     }
     
     table.put_item(Item=task)
@@ -130,7 +130,7 @@ def update_task(task_id, body):
     
     # Build update expression
     update_expr = 'SET updated_at = :updated_at'
-    expr_values = {':updated_at': datetime.utcnow().isoformat()}
+    expr_values = {':updated_at': datetime.now(timezone.utc).isoformat()}
     
     if 'title' in body:
         update_expr += ', title = :title'
@@ -180,6 +180,6 @@ def health_check(event, context):
     """Health check for the API."""
     return create_response(200, {
         'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'version': '1.0.0'
     })
